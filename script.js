@@ -93,7 +93,7 @@ function PlantEater() {
 
 PlantEater.prototype.act = function(view) {
 	var space = view.find(" ");
-	if (this.energy > 60 && space)
+	if (this.energy > 40 && space)
 		return {type: "reproduce", direction: space};
 	var plant = view.find("*");
 	if (plant)
@@ -207,7 +207,7 @@ LifelikeWorld.prototype.letAct = function(critter, vector) {
 	  action.type in actionTypes &&
 	  actionTypes[action.type].call(this, critter, vector, action);
 	if (!handled) {
-		critter.energy -= 0.2;
+		critter.energy -= 0.1;
 		if (critter.energy <= 0) 
 			this.grid.set(vector, null);
 	}
@@ -307,8 +307,8 @@ var valley = new LifelikeWorld(
 );
 
 // 5 turns of moving
-for (var i = 0; i < 99; i++) {
-	world.turn();
-	console.log(world.toString());
-	wait(700);
+for (var i = 0; i < 999; i++) {
+	valley.turn();
+	console.log(valley.toString());
+	wait(10);
 }
