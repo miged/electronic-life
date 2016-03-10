@@ -36,7 +36,7 @@ Grid.prototype.forEach = function(f, context) {
 	}
 };
 
-// Critter
+// Critters
 function randomElement(array) {
 	return array[Math.floor(Math.random() * array.length)];
 }
@@ -53,6 +53,11 @@ var directions = {
   "nw": new Vector(-1, -1)
 };
 
+function dirPlus(dir, n) {
+	var index = directionNames.indexOf(dir);
+	return directionNames[(index + n + 8) % 8];
+}
+
 function BouncingCritter() {
 	this.direction = randomElement(directionNames);
 };
@@ -62,6 +67,21 @@ BouncingCritter.prototype.act = function(view) {
 		this.direction = view.find(" ") || "s";
 	}
 	return {type: "move", direction: this.direction};
+};
+
+function WallFollower() {
+	this.dir = "s";
+}
+
+WallFollower.prototype.act = function(view) {
+	var start = this.dir;
+	if (view.look(dirPlus(this.dir, -3)) != " ")
+		start = this.dir = dirPlus(this.dir, -2);
+	while (view.look(this.dir) != " ") {
+		this.dir = dirPlus(this.dir, 1);
+		if (this.dir == start) break;
+	}
+	return {type: "move", direction: this.dir};
 };
 
 // World object type
@@ -169,22 +189,26 @@ View.prototype.find = function(ch) {
 
 
 var plan = ["############################",
-			"#      #    #      o      ##",
-			"#                          #",
-			"#          #####           #",
-			"##         #   #    ##     #",
-			"###           ##     #     #",
-			"#           ###      #     #",
-			"#   ####                   #",
-			"#   ##       o             #",
-			"# o  #         o       ### #",
-			"#    #                     #",
-			"############################"];
+            "#      #    #      o       #",
+            "#                          #",
+            "#          #####          ~#",
+            "##         #         #     #",
+            "###           ##     #     #",
+            "#           ##       #     #",
+            "#   ####                   #",
+            "#   ##       o             #",
+            "# o  #         o       ### #",
+            "#    #        ##           #",
+            "############################"];
 
-var world = new World(plan, {"#": Wall, "o": BouncingCritter});
+var world = new World(plan, {
+	"#": Wall, 
+	"o": BouncingCritter, 
+	"~": WallFollower
+});
 
 // 5 turns of moving
-for (var i = 0; i < 5; i++) {
+for (var i = 0; i < 99; i++) {
 	world.turn();
 	console.log(world.toString());
 }
