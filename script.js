@@ -1,4 +1,4 @@
-// Grid
+/* Grid */
 function Vector(x, y) {
 	this.x = x;
 	this.y = y;
@@ -36,7 +36,7 @@ Grid.prototype.forEach = function(f, context) {
 	}
 };
 
-// Critters
+/* Critters */
 function randomElement(array) {
 	return array[Math.floor(Math.random() * array.length)];
 }
@@ -58,6 +58,7 @@ function dirPlus(dir, n) {
 	return directionNames[(index + n + 8) % 8];
 }
 
+// Bouncing Critter
 function BouncingCritter() {
 	this.direction = randomElement(directionNames);
 };
@@ -69,6 +70,7 @@ BouncingCritter.prototype.act = function(view) {
 	return {type: "move", direction: this.direction};
 };
 
+// Wall Follower
 function WallFollower() {
 	this.dir = "s";
 }
@@ -84,7 +86,38 @@ WallFollower.prototype.act = function(view) {
 	return {type: "move", direction: this.dir};
 };
 
-// World object type
+// Plant Eater
+function PlantEater() {
+  this.energy = 20;
+}
+
+PlantEater.prototype.act = function(view) {
+	var space = view.find(" ");
+	if (this.energy > 60 && space)
+		return {type: "reproduce", direction: space};
+	var plant = view.find("*");
+	if (plant)
+		return {type: "eat", direction: plant};
+	if (space)
+		return {type: "move", direction: space};
+};
+
+/* Plant */
+function Plant() {
+	this.energy = 3 + Math.random() * 4;
+}
+
+Plant.prototype.act = function(view) {
+	if (this.energy > 15) {
+		var space = view.find(" ");
+		if (space)
+			return {type: "reproduce", direction: space};
+	}
+	if (this.energy < 20)
+		return {type: "grow"};
+};
+
+/* World object type*/
 function elementFromChar(legend, ch) {
 	if (ch == " ")
 		return null;
@@ -93,7 +126,6 @@ function elementFromChar(legend, ch) {
 	return element;
 }
 
-// world constructor
 function World(map, legend) {
 	var grid = new Grid(map[0].length, map.length);
 	this.grid = grid;
@@ -161,7 +193,70 @@ World.prototype.checkDestination = function(action, vector) {
 	}
 };
 
-// View type
+function LifelikeWorld(map, legend) {
+	World.call(this, map, legend);
+}
+LifelikeWorld.prototype = Object.create(World.prototype);
+
+var actionTypes = Object.create(null);
+
+LifelikeWorld.prototype.letAct = function(critter, vector) {
+	var action = critter.act(new View(this, vector));
+	// check if action has been handled
+	var handled = action &&
+	  action.type in actionTypes &&
+	  actionTypes[action.type].call(this, critter, vector, action);
+	if (!handled) {
+		critter.energy -= 0.2;
+		if (critter.energy <= 0) 
+			this.grid.set(vector, null);
+	}
+};
+
+/* Action Handlers */
+// Grow
+actionTypes.grow = function(critter) {
+	critter.energy += 0.5;
+	return true;
+};
+
+// Move
+actionTypes.move = function(critter, vector, action) {
+	var dest = this.checkDestination(action, vector);
+	if (dest == null || critter.energy <= 1 || this.grid.get(dest) != null)
+		return false;
+	critter.energy -= 1;
+	this.grid.set(vector, null);
+	this.grid.set(dest, critter);
+	return true;
+}
+
+// Eat
+actionTypes.eat = function(critter, vector, action) {
+	var dest = this.checkDestination(action, vector);
+	var atDest = dest != null && this.grid.get(dest);
+	if (!atDest || atDest.energy == null)
+		return false;
+	critter.energy += atDest.energy;
+	this.grid.set(dest, null);
+	return true;
+};
+
+// Reproduce
+actionTypes.reproduce = function(critter, vector, action) {
+  var baby = elementFromChar(this.legend,
+                             critter.originChar);
+  var dest = this.checkDestination(action, vector);
+  if (dest == null ||
+      critter.energy <= 2 * baby.energy ||
+      this.grid.get(dest) != null)
+    return false;
+  critter.energy -= 2 * baby.energy;
+  this.grid.set(dest, baby);
+  return true;
+};
+
+/* View type */
 function View(world, vector) {
 	this.world = world;
 	this.vector = vector;
@@ -188,27 +283,32 @@ View.prototype.find = function(ch) {
 };
 
 
-var plan = ["############################",
-            "#      #    #      o       #",
-            "#                          #",
-            "#          #####          ~#",
-            "##         #         #     #",
-            "###           ##     #     #",
-            "#           ##       #     #",
-            "#   ####                   #",
-            "#   ##       o             #",
-            "# o  #         o       ### #",
-            "#    #        ##           #",
-            "############################"];
+function wait(delay) {
+  var start = new Date().getTime();
+  while (new Date().getTime() < start + delay);
+}
 
-var world = new World(plan, {
-	"#": Wall, 
-	"o": BouncingCritter, 
-	"~": WallFollower
-});
+var valley = new LifelikeWorld(
+    ["############################",
+     "#####                 ######",
+     "##   ***                **##",
+     "#   *##**         **  O  *##",
+     "#    ***     O    ##**    *#",
+     "#       O         ##***    #",
+     "#                 ##**     #",
+     "#   O       #*             #",
+     "#*          #**       O    #",
+     "#***        ##**    O    **#",
+     "##****     ###***       *###",
+     "############################"],
+    {"#": Wall,
+     "O": PlantEater,
+     "*": Plant}
+);
 
 // 5 turns of moving
 for (var i = 0; i < 99; i++) {
 	world.turn();
 	console.log(world.toString());
+	wait(700);
 }
